@@ -1,0 +1,17 @@
+{
+    "name": "example/laravel-crud-kit",
+    "type": "library",
+    "license": "proprietary",
+    "autoload": {
+        "psr-4": {
+            "Example\\LaravelCrudKit\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "Luiz Oliveira"
+        }
+    ],
+    "minimum-stability": "dev",
+    "require": {}
+}
