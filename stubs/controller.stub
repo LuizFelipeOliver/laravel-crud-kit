@@ -1,9 +1,9 @@
 <?php
 
-namespace App\Http\Controllers\Api;
+namespace {{ namespace }};
 
 use App\Http\Controllers\Controller;
-use App\Services\{{ name }}Service;
+use {{ service_namespace }}\{{ name }}Service;
 
 class {{ name }}Controller extends Controller
 {

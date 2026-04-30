@@ -2,15 +2,16 @@
 
 namespace Example\LaravelCrudKit;
 
-use Illuminate\Support\ServiceProvider;
+use Example\LaravelCrudKit\Console\InstallCrudKitCommand;
 use Example\LaravelCrudKit\Console\MakeCrudCommand;
+use Illuminate\Support\ServiceProvider;
 
 class CrudKitServiceProvider extends ServiceProvider
 {
-    public funcion register():void
+    public function register():void
     {
-        $this->mergerConfigFrom(
-            __DIR__ . '/.../config/crud-kit.php',
+        $this->mergeConfigFrom(
+            __DIR__ . '/../config/crud-kit.php',
             'crud-kit'
         );
     }
@@ -22,6 +23,7 @@ class CrudKitServiceProvider extends ServiceProvider
         }
 
         $this->commands([
+            InstallCrudKitCommand::class,
             MakeCrudCommand::class,
         ]);
 

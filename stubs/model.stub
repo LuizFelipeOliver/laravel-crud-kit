@@ -1,0 +1,13 @@
+<?php
+
+namespace {{ namespace }};
+
+{{ imports }}
+
+{{ attributes }}
+class {{ name }} extends Model
+{
+{{ uses }}
+{{ casts }}
+{{ relationships }}
+}

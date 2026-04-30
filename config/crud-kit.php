@@ -5,6 +5,7 @@ return [
         'controllers' => app_path('Http/Controllers/Api'),
         'requests' => app_path('Http/Requests'),
         'resources' => app_path('Http/Resources'),
+        'models' => app_path('Models'),
         'services' => app_path('Services'),
         'repositories' => app_path('Repositories'),
     ],

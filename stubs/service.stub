@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Services;
+namespace {{ namespace }};
 
-use App\Repositories\{{ name }}Repository;
+use {{ repository_namespace }}\{{ name }}Repository;
 
 class {{ name }}Service
 {
