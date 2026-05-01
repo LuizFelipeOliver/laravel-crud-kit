@@ -1,0 +1,44 @@
+<?php
+
+namespace {{ namespace }};
+
+use {{ model_namespace }}\{{ model }};
+
+class {{ name }}Repository
+{
+    public function all()
+    {
+        return {{ model }}::query()
+            ->with({{ relations }})
+            ->latest()
+            ->paginate();
+    }
+
+    public function find(int $id): {{ model }}
+    {
+        return {{ model }}::query()
+            ->with({{ relations }})
+            ->findOrFail($id);
+    }
+
+    public function create(array $data): {{ model }}
+    {
+        return {{ model }}::query()->create($data);
+    }
+
+    public function update(int $id, array $data): {{ model }}
+    {
+        ${{ variable }} = $this->find($id);
+
+        ${{ variable }}->update($data);
+
+        return ${{ variable }};
+    }
+
+    public function delete(int $id): bool
+    {
+        ${{ variable }} = $this->find($id);
+
+        return ${{ variable }}->delete();
+    }
+}

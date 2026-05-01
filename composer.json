@@ -32,7 +32,7 @@
     "extra": {
         "laravel": {
             "providers": [
-                "Example\\LaravelCrudKit\\CrudKitServiceProvider"
+                "Example\\LaravelCrudKit\\KrakenServiceProvider"
             ]
         }
     },
