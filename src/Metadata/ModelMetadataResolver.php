@@ -6,11 +6,40 @@ use Illuminate\Support\Facades\Schema;
 
 final class ModelMetadataResolver
 {
+    private const BASE_IMPORTS = [
+        'Illuminate\\Database\\Eloquent\\Attributes\\Table',
+        'Illuminate\\Database\\Eloquent\\Model',
+    ];
+
+    private const FILLABLE_IMPORT = 'Illuminate\\Database\\Eloquent\\Attributes\\Fillable';
+
+    private const WITHOUT_TIMESTAMPS_IMPORT = 'Illuminate\\Database\\Eloquent\\Attributes\\WithoutTimestamps';
+
+    private const SOFT_DELETES_IMPORT = 'Illuminate\\Database\\Eloquent\\SoftDeletes';
+
+    private const GUARDED_COLUMNS = [
+        'id',
+        'created_at',
+        'updated_at',
+        'deleted_at',
+        'remember_token',
+    ];
+
+    private const NON_CASTABLE_COLUMNS = [
+        'id',
+        'created_at',
+        'updated_at',
+        'deleted_at',
+    ];
+
     public function __construct(
         private ColumnCastResolver $castResolver,
         private RelationshipResolver $relationshipResolver,
     ) {}
 
+    /**
+     * @return array<string, string>
+     */
     public function resolve(string $model, string $table): array
     {
         if (! Schema::hasTable($table)) {
@@ -19,49 +48,33 @@ final class ModelMetadataResolver
 
         $columns = Schema::getColumns($table);
         $columnNames = array_map(fn(array $column): string => $this->columnName($column), $columns);
-        $usesSoftDeletes = in_array('deleted_at', $columnNames, true);
-        $usesTimestamps = in_array('created_at', $columnNames, true) && in_array('updated_at', $columnNames, true);
+        $usesSoftDeletes = $this->usesSoftDeletes($columnNames);
+        $usesTimestamps = $this->usesTimestamps($columnNames);
         $fillable = $this->fillableColumns($columnNames);
-        $casts = $this->casts($columns);
         $relationships = $this->relationshipResolver->resolve($model, $table, $columns);
-        $imports = [
-            'Illuminate\\Database\\Eloquent\\Attributes\\Table',
-            'Illuminate\\Database\\Eloquent\\Model',
-        ];
-
-        if ($fillable !== []) {
-            $imports[] = 'Illuminate\\Database\\Eloquent\\Attributes\\Fillable';
-        }
-
-        if (! $usesTimestamps) {
-            $imports[] = 'Illuminate\\Database\\Eloquent\\Attributes\\WithoutTimestamps';
-        }
-
-        if ($usesSoftDeletes) {
-            $imports[] = 'Illuminate\\Database\\Eloquent\\SoftDeletes';
-        }
-
-        foreach ($relationships['imports'] as $import) {
-            $imports[] = $import;
-        }
 
         return [
-            'imports' => $this->formatImports($imports),
+            'imports' => $this->formatImports($this->imports(
+                fillable: $fillable,
+                usesTimestamps: $usesTimestamps,
+                usesSoftDeletes: $usesSoftDeletes,
+                relationshipImports: $relationships['imports'],
+            )),
             'attributes' => $this->formatAttributes($table, $usesTimestamps, $fillable),
             'uses' => $usesSoftDeletes ? '    use SoftDeletes;' : '',
-            'casts' => $this->formatCasts($casts),
+            'casts' => $this->formatCasts($this->casts($columns)),
             'relationships' => $relationships['methods'],
             'repository_relations' => $this->formatRepositoryRelations($relationships['names']),
         ];
     }
 
+    /**
+     * @return array<string, string>
+     */
     private function emptyMetadata(string $table): array
     {
         return [
-            'imports' => $this->formatImports([
-                'Illuminate\\Database\\Eloquent\\Attributes\\Table',
-                'Illuminate\\Database\\Eloquent\\Model',
-            ]),
+            'imports' => $this->formatImports(self::BASE_IMPORTS),
             'attributes' => $this->formatAttributes($table, true, []),
             'uses' => '',
             'casts' => $this->formatCasts([]),
@@ -70,17 +83,42 @@ final class ModelMetadataResolver
         ];
     }
 
-    private function fillableColumns(array $columns): array
+    /**
+     * @param array<int, string> $columns
+     */
+    private function usesSoftDeletes(array $columns): bool
     {
-        return array_values(array_filter($columns, fn(string $column): bool => ! in_array($column, [
-            'id',
-            'created_at',
-            'updated_at',
-            'deleted_at',
-            'remember_token',
-        ], true)));
+        return in_array('deleted_at', $columns, true);
     }
 
+    /**
+     * @param array<int, string> $columns
+     */
+    private function usesTimestamps(array $columns): bool
+    {
+        if (! in_array('created_at', $columns, true)) {
+            return false;
+        }
+
+        return in_array('updated_at', $columns, true);
+    }
+
+    /**
+     * @param array<int, string> $columns
+     * @return array<int, string>
+     */
+    private function fillableColumns(array $columns): array
+    {
+        return array_values(array_filter(
+            $columns,
+            fn(string $column): bool => ! in_array($column, self::GUARDED_COLUMNS, true)
+        ));
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $columns
+     * @return array<string, string>
+     */
     private function casts(array $columns): array
     {
         $casts = [];
@@ -88,25 +126,61 @@ final class ModelMetadataResolver
         foreach ($columns as $column) {
             $name = $this->columnName($column);
 
-            if (in_array($name, ['id', 'created_at', 'updated_at', 'deleted_at'], true)) {
+            if (in_array($name, self::NON_CASTABLE_COLUMNS, true)) {
                 continue;
             }
 
             $cast = $this->castResolver->resolve($column);
 
-            if ($cast !== null) {
-                $casts[$name] = $cast;
+            if ($cast === null) {
+                continue;
             }
+
+            $casts[$name] = $cast;
         }
 
         return $casts;
     }
 
+    /**
+     * @param array<string, mixed> $column
+     */
     private function columnName(array $column): string
     {
         return (string) ($column['name'] ?? $column['column_name']);
     }
 
+    /**
+     * @param array<int, string> $fillable
+     * @param array<int, string> $relationshipImports
+     * @return array<int, string>
+     */
+    private function imports(
+        array $fillable,
+        bool $usesTimestamps,
+        bool $usesSoftDeletes,
+        array $relationshipImports,
+    ): array {
+        $imports = self::BASE_IMPORTS;
+
+        if ($fillable !== []) {
+            $imports[] = self::FILLABLE_IMPORT;
+        }
+
+        if (! $usesTimestamps) {
+            $imports[] = self::WITHOUT_TIMESTAMPS_IMPORT;
+        }
+
+        if ($usesSoftDeletes) {
+            $imports[] = self::SOFT_DELETES_IMPORT;
+        }
+
+        return [...$imports, ...$relationshipImports];
+    }
+
+    /**
+     * @param array<int, string> $imports
+     */
     private function formatImports(array $imports): string
     {
         sort($imports);
@@ -114,6 +188,9 @@ final class ModelMetadataResolver
         return implode("\n", array_map(fn(string $import): string => "use {$import};", array_unique($imports)));
     }
 
+    /**
+     * @param array<int, string> $fillable
+     */
     private function formatAttributes(string $table, bool $usesTimestamps, array $fillable): string
     {
         $attributes = [];
@@ -134,6 +211,9 @@ final class ModelMetadataResolver
         return implode("\n", $attributes);
     }
 
+    /**
+     * @param array<string, string> $casts
+     */
     private function formatCasts(array $casts): string
     {
         if ($casts === []) {
@@ -161,6 +241,9 @@ PHP;
 PHP;
     }
 
+    /**
+     * @param array<int, string> $relations
+     */
     private function formatRepositoryRelations(array $relations): string
     {
         if ($relations === []) {

@@ -2,11 +2,15 @@
 
 namespace {{ namespace }};
 
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use {{ model_namespace }}\{{ model }};
 
 class {{ name }}Repository
 {
-    public function all()
+    /**
+     * @return LengthAwarePaginator<int, {{ model }}>
+     */
+    public function all(): LengthAwarePaginator
     {
         return {{ model }}::query()->latest()->paginate();
     }
@@ -16,11 +20,17 @@ class {{ name }}Repository
         return {{ model }}::query()->findOrFail($id);
     }
 
+    /**
+     * @param array<string, mixed> $data
+     */
     public function create(array $data): {{ model }}
     {
         return {{ model }}::query()->create($data);
     }
 
+    /**
+     * @param array<string, mixed> $data
+     */
     public function update(int $id, array $data): {{ model }}
     {
         ${{ variable }} = $this->find($id);

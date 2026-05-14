@@ -3,6 +3,9 @@
 namespace {{ namespace }};
 
 use App\Http\Controllers\Controller;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use {{ service_namespace }}\{{ name }}Service;
 
 class {{ name }}Controller extends Controller
@@ -11,36 +14,42 @@ class {{ name }}Controller extends Controller
         private {{ name }}Service $service
     ) {}
 
-    public function index()
+    public function index(): JsonResponse
     {
         return response()->json(
             $this->service->all()
         );
     }
 
-    public function show(int $id)
+    public function show(int $id): JsonResponse
     {
         return response()->json(
             $this->service->find($id)
         );
     }
 
-    public function store()
+    public function store(Request $request): JsonResponse
     {
+        /** @var array<string, mixed> $data */
+        $data = $request->all();
+
         return response()->json(
-            $this->service->create(request()->all()),
+            $this->service->create($data),
             201
         );
     }
 
-    public function update(int $id)
+    public function update(Request $request, int $id): JsonResponse
     {
+        /** @var array<string, mixed> $data */
+        $data = $request->all();
+
         return response()->json(
-            $this->service->update($id, request()->all())
+            $this->service->update($id, $data)
         );
     }
 
-    public function destroy(int $id)
+    public function destroy(int $id): Response
     {
         $this->service->delete($id);
 

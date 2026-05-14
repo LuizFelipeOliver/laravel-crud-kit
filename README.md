@@ -140,14 +140,54 @@ Quando a tabela existe, a Model gerada inclui:
 - `casts()` com base nos tipos das colunas
 - `SoftDeletes` quando a tabela tem a coluna `deleted_at`
 - relacionamentos `belongsTo` com base nas foreign keys da tabela
-- relacionamentos `hasMany` com base em foreign keys de outras tabelas
-- relacionamentos `belongsToMany` com base em tabelas pivot simples
 
 Se o banco não tiver foreign keys definidas, o pacote tenta detectar
 relacionamentos usando a convenção de colunas `*_id`.
 
 A conexão com o banco de dados do Laravel precisa estar configurada antes de
 rodar o comando para que campos, casts e relacionamentos sejam detectados.
+
+### Relacionamentos
+
+Na versão atual, o Kraken gera automaticamente apenas relacionamentos
+`belongsTo`, porque eles são os mais seguros de inferir pela tabela atual.
+
+Exemplo:
+
+```text
+posts.user_id     -> Post::user()
+posts.category_id -> Post::category()
+```
+
+Relacionamentos inversos e pivots não são gerados automaticamente por enquanto:
+
+```text
+User::posts()
+Category::posts()
+Post::tags()
+```
+
+Esse comportamento é intencional. Futuramente, o pacote deve suportar uma opção
+como `--relations=none|belongs-to|all`, seguindo convenções internas rígidas.
+
+Convenções planejadas:
+
+```text
+foreign key: singular_id
+tabelas comuns: plural
+tabelas pivot: singular_singular em ordem alfabética
+```
+
+Exemplos de pivots válidas:
+
+```text
+post_tag
+role_user
+category_product
+```
+
+Tabelas com colunas de negócio, como `posts`, `orders` e `invoices`, não devem
+ser tratadas como pivot.
 
 ## Tabela Personalizada
 
@@ -224,6 +264,15 @@ return [
 
     'repository' => [
         'default' => 'simple',
+    ],
+
+    'relationships' => [
+        'default' => 'belongs_to',
+
+        'conventions' => [
+            'foreign_key' => 'singular_id',
+            'pivot_table' => 'alphabetical_singular',
+        ],
     ],
 ];
 ```
