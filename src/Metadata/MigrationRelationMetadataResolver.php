@@ -95,6 +95,10 @@ final class MigrationRelationMetadataResolver
 
     private function migrationPath(string $table): ?string
     {
+        if (! preg_match('/^[A-Za-z0-9_]+$/', $table)) {
+            return null;
+        }
+
         $paths = File::glob(base_path("database/migrations/*_create_{$table}_table.php"));
 
         if ($paths === false || $paths === []) {
@@ -124,11 +128,19 @@ final class MigrationRelationMetadataResolver
 
     private function migrationFromPath(string $path): ?object
     {
-        $migration = require $path;
+        $migrationsDir = realpath(base_path('database/migrations'));
 
-        if (! is_object($migration)) {
+        $realPath = realpath($path);
+
+        if (
+            $migrationsDir == false ||
+            $realPath == false ||
+            ! str_starts_with($realPath, $migrationsDir . DIRECTORY_SEPARATOR)
+        ) {
             return null;
         }
+
+        $migration = require $realPath;
 
         return $migration;
     }
