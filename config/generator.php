@@ -22,4 +22,25 @@ return [
     'repository' => [
         'default' => 'simple',
     ],
+
+    'relationships' => [
+        /*
+         * Current V1 behavior is intentionally conservative:
+         * only belongsTo relationships are generated automatically.
+         *
+         * Future options planned:
+         * - none
+         * - belongs_to
+         * - all
+         *
+         * Inverse relationships and pivot relationships should only be
+         * generated after strict internal conventions are defined.
+         */
+        'default' => 'belongs_to',
+
+        'conventions' => [
+            'foreign_key' => 'singular_id',
+            'pivot_table' => 'alphabetical_singular',
+        ],
+    ],
 ];

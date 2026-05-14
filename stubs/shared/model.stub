@@ -4,6 +4,9 @@ namespace {{ namespace }};
 
 {{ imports }}
 
+/**
+ * @mixin \Illuminate\Database\Eloquent\Builder<static>
+ */
 {{ attributes }}
 class {{ name }} extends Model
 {

@@ -8,6 +8,10 @@ use Illuminate\Support\Str;
 
 class MakeCommand extends Command
 {
+    private const ONLY_OPTIONS = ['model', 'controller', 'service', 'repository'];
+
+    private const REPOSITORY_OPTIONS = ['simple', 'relations'];
+
     protected $signature = 'kraken:make
         {name : Entity name}
         {--table= : Database table used to inspect model fields and relationships}
@@ -20,41 +24,97 @@ class MakeCommand extends Command
 
     public function handle(Generator $generator): int
     {
-        if ($this->option('api') && $this->option('web')) {
-            $this->components->error('Use only one blueprint option: --api or --web.');
-
+        if ($this->hasConflictingBlueprintOptions()) {
             return self::FAILURE;
         }
 
-        $only = $this->option('only');
-
-        if ($only !== null && ! in_array($only, ['model', 'controller', 'service', 'repository'], true)) {
-            $this->components->error('Invalid --only value. Use: model, controller, service or repository.');
-
+        if (! $this->hasValidOnlyOption()) {
             return self::FAILURE;
         }
 
-        $repository = $this->option('repository');
-
-        if ($repository !== null && ! in_array($repository, ['simple', 'relations'], true)) {
-            $this->components->error('Invalid --repository value. Use: simple or relations.');
-
+        if (! $this->hasValidRepositoryOption()) {
             return self::FAILURE;
         }
 
         $name = Str::studly($this->argument('name'));
-        $blueprint = $this->option('web') ? 'web' : ($this->option('api') ? 'api' : null);
 
         $generator->generate(
             name: $name,
             table: $this->option('table'),
-            blueprint: $blueprint,
-            only: $only,
-            repository: $repository,
+            blueprint: $this->blueprint(),
+            only: $this->stringOption('only'),
+            repository: $this->stringOption('repository'),
         );
 
         $this->components->info("Files for {$name} generated.");
 
         return self::SUCCESS;
+    }
+
+    private function hasConflictingBlueprintOptions(): bool
+    {
+        if (! $this->option('api') || ! $this->option('web')) {
+            return false;
+        }
+
+        $this->components->error('Use only one blueprint option: --api or --web.');
+
+        return true;
+    }
+
+    private function hasValidOnlyOption(): bool
+    {
+        if ($this->isValidOption('only', self::ONLY_OPTIONS)) {
+            return true;
+        }
+
+        $this->components->error('Invalid --only value. Use: model, controller, service or repository.');
+
+        return false;
+    }
+
+    private function hasValidRepositoryOption(): bool
+    {
+        if ($this->isValidOption('repository', self::REPOSITORY_OPTIONS)) {
+            return true;
+        }
+
+        $this->components->error('Invalid --repository value. Use: simple or relations.');
+
+        return false;
+    }
+
+    /**
+     * @param array<int, string> $allowed
+     */
+    private function isValidOption(string $option, array $allowed): bool
+    {
+        $value = $this->stringOption($option);
+
+        if ($value === null) {
+            return true;
+        }
+
+        return in_array($value, $allowed, true);
+    }
+
+    private function blueprint(): ?string
+    {
+        if ($this->option('web')) {
+            return 'web';
+        }
+
+        if ($this->option('api')) {
+            return 'api';
+        }
+
+        return null;
+    }
+
+    private function stringOption(string $option): ?string
+    {
+        $value = $this->option($option);
+
+        return is_string($value) ? $value : null;
     }
 }

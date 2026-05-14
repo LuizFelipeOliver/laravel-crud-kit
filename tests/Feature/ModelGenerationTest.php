@@ -1,0 +1,526 @@
+<?php
+
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Schema;
+
+beforeEach(function (): void {
+    $this->generatedPath = sys_get_temp_dir() . '/kraken-tests/' . uniqid('generation_', true);
+    $this->migrationPath = base_path('database/migrations');
+    $this->migrationFiles = [];
+
+    config()->set('generator.paths', [
+        'api_controller' => $this->generatedPath . '/app/Http/Controllers/Api',
+        'web_controller' => $this->generatedPath . '/app/Http/Controllers',
+        'models' => $this->generatedPath . '/app/Models',
+        'services' => $this->generatedPath . '/app/Services',
+        'repositories' => $this->generatedPath . '/app/Repositories',
+    ]);
+
+    config()->set('generator.namespaces', [
+        'api_controller' => 'App\\Http\\Controllers\\Api',
+        'web_controller' => 'App\\Http\\Controllers',
+        'models' => 'App\\Models',
+        'services' => 'App\\Services',
+        'repositories' => 'App\\Repositories',
+    ]);
+
+    Schema::shouldReceive('hasTable')
+        ->byDefault()
+        ->andReturnUsing(fn(string $table): bool => in_array($table, [
+            'users',
+            'roles',
+            'posts',
+            'categories',
+            'tags',
+            'post_tag',
+            'role_user',
+            'role_user_missing_fk',
+            'user_role',
+        ], true));
+
+    Schema::shouldReceive('getTables')
+        ->byDefault()
+        ->andReturn([
+            ['name' => 'users'],
+            ['name' => 'roles'],
+            ['name' => 'posts'],
+            ['name' => 'categories'],
+            ['name' => 'tags'],
+            ['name' => 'post_tag'],
+            ['name' => 'role_user'],
+            ['name' => 'user_role'],
+        ]);
+
+    Schema::shouldReceive('getColumns')
+        ->byDefault()
+        ->andReturnUsing(fn(string $table): array => match ($table) {
+            'users' => [
+                ['name' => 'id', 'type_name' => 'bigint'],
+                ['name' => 'name', 'type_name' => 'varchar'],
+                ['name' => 'created_at', 'type_name' => 'timestamp'],
+                ['name' => 'updated_at', 'type_name' => 'timestamp'],
+            ],
+            'roles' => [
+                ['name' => 'id', 'type_name' => 'bigint'],
+                ['name' => 'name', 'type_name' => 'varchar'],
+                ['name' => 'created_at', 'type_name' => 'timestamp'],
+                ['name' => 'updated_at', 'type_name' => 'timestamp'],
+            ],
+            'posts' => [
+                ['name' => 'id', 'type_name' => 'bigint'],
+                ['name' => 'user_id', 'type_name' => 'bigint'],
+                ['name' => 'category_id', 'type_name' => 'bigint'],
+                ['name' => 'title', 'type_name' => 'varchar'],
+                ['name' => 'content', 'type_name' => 'text'],
+                ['name' => 'created_at', 'type_name' => 'timestamp'],
+                ['name' => 'updated_at', 'type_name' => 'timestamp'],
+            ],
+            'categories' => [
+                ['name' => 'id', 'type_name' => 'bigint'],
+                ['name' => 'user_id', 'type_name' => 'bigint'],
+                ['name' => 'name', 'type_name' => 'varchar'],
+                ['name' => 'created_at', 'type_name' => 'timestamp'],
+                ['name' => 'updated_at', 'type_name' => 'timestamp'],
+            ],
+            'tags' => [
+                ['name' => 'id', 'type_name' => 'bigint'],
+                ['name' => 'name', 'type_name' => 'varchar'],
+                ['name' => 'created_at', 'type_name' => 'timestamp'],
+                ['name' => 'updated_at', 'type_name' => 'timestamp'],
+            ],
+            'post_tag' => [
+                ['name' => 'id', 'type_name' => 'bigint'],
+                ['name' => 'post_id', 'type_name' => 'bigint'],
+                ['name' => 'tag_id', 'type_name' => 'bigint'],
+                ['name' => 'created_at', 'type_name' => 'timestamp'],
+                ['name' => 'updated_at', 'type_name' => 'timestamp'],
+            ],
+            'role_user' => [
+                ['name' => 'id', 'type_name' => 'bigint'],
+                ['name' => 'role_id', 'type_name' => 'bigint'],
+                ['name' => 'user_id', 'type_name' => 'bigint'],
+                ['name' => 'created_at', 'type_name' => 'timestamp'],
+                ['name' => 'updated_at', 'type_name' => 'timestamp'],
+            ],
+            'role_user_missing_fk' => [
+                ['name' => 'id', 'type_name' => 'bigint'],
+                ['name' => 'role_id', 'type_name' => 'bigint'],
+                ['name' => 'created_at', 'type_name' => 'timestamp'],
+                ['name' => 'updated_at', 'type_name' => 'timestamp'],
+            ],
+            'user_role' => [
+                ['name' => 'id', 'type_name' => 'bigint'],
+                ['name' => 'role_id', 'type_name' => 'bigint'],
+                ['name' => 'user_id', 'type_name' => 'bigint'],
+                ['name' => 'created_at', 'type_name' => 'timestamp'],
+                ['name' => 'updated_at', 'type_name' => 'timestamp'],
+            ],
+            default => [],
+        });
+
+    Schema::shouldReceive('hasColumn')
+        ->byDefault()
+        ->andReturnUsing(fn(string $table, string $column): bool => match ($table) {
+            'posts' => in_array($column, ['user_id', 'category_id'], true),
+            'categories' => $column === 'user_id',
+            'post_tag' => in_array($column, ['post_id', 'tag_id'], true),
+            'role_user' => in_array($column, ['role_id', 'user_id'], true),
+            'user_role' => in_array($column, ['role_id', 'user_id'], true),
+            default => false,
+        });
+
+    Schema::shouldReceive('getForeignKeys')
+        ->byDefault()
+        ->andReturnUsing(fn(string $table): array => match ($table) {
+            'posts' => [
+                [
+                    'columns' => ['user_id'],
+                    'foreign_table' => 'users',
+                ],
+                [
+                    'columns' => ['category_id'],
+                    'foreign_table' => 'categories',
+                ],
+            ],
+            'categories' => [
+                [
+                    'columns' => ['user_id'],
+                    'foreign_table' => 'users',
+                ],
+            ],
+            'post_tag' => [
+                [
+                    'columns' => ['post_id'],
+                    'foreign_table' => 'posts',
+                ],
+                [
+                    'columns' => ['tag_id'],
+                    'foreign_table' => 'tags',
+                ],
+            ],
+            default => [],
+        });
+});
+
+afterEach(function (): void {
+    foreach ($this->migrationFiles as $migrationFile) {
+        File::delete($migrationFile);
+    }
+
+    File::deleteDirectory($this->generatedPath);
+});
+
+it('generates a belongs to relationship only once', function (): void {
+    $this->artisan('kraken:make', [
+        'name' => 'Post',
+        '--only' => 'model',
+    ])->assertSuccessful();
+
+    $content = File::get($this->generatedPath . '/app/Models/Post.php');
+
+    expect(substr_count($content, 'public function user(): BelongsTo'))->toBe(1)
+        ->and(substr_count($content, 'use Illuminate\\Database\\Eloquent\\Relations\\BelongsTo;'))->toBe(1);
+});
+
+it('does not generate inverse relationships by default', function (): void {
+    $this->artisan('kraken:make', [
+        'name' => 'User',
+        '--only' => 'model',
+    ])->assertSuccessful();
+
+    $content = File::get($this->generatedPath . '/app/Models/User.php');
+
+    expect($content)->not->toContain('public function posts(): HasMany')
+        ->and($content)->not->toContain('public function categories(): HasMany')
+        ->and($content)->not->toContain('use Illuminate\\Database\\Eloquent\\Relations\\HasMany;');
+});
+
+it('does not generate belongs to many relationships by default', function (): void {
+    $this->artisan('kraken:make', [
+        'name' => 'User',
+        '--only' => 'model',
+    ])->assertSuccessful();
+
+    $content = File::get($this->generatedPath . '/app/Models/User.php');
+
+    expect($content)->not->toContain('BelongsToMany')
+        ->and($content)->not->toContain('belongsToMany');
+});
+
+it('does not generate pivot relationships by default', function (): void {
+    $this->artisan('kraken:make', [
+        'name' => 'Post',
+        '--only' => 'model',
+    ])->assertSuccessful();
+
+    $content = File::get($this->generatedPath . '/app/Models/Post.php');
+
+    expect($content)->not->toContain('public function tags(): BelongsToMany')
+        ->and($content)->not->toContain('belongsToMany');
+});
+
+it('does not append to an existing generated model', function (): void {
+    $this->artisan('kraken:make', [
+        'name' => 'Post',
+        '--only' => 'model',
+    ])->assertSuccessful();
+
+    $path = $this->generatedPath . '/app/Models/Post.php';
+    $firstContent = File::get($path);
+
+    $this->artisan('kraken:make', [
+        'name' => 'Post',
+        '--only' => 'model',
+    ])->assertSuccessful();
+
+    $secondContent = File::get($path);
+
+    expect($secondContent)->toBe($firstContent)
+        ->and(substr_count($secondContent, 'class Post extends Model'))->toBe(1);
+});
+
+it('generates an api controller by default', function (): void {
+    $this->artisan('kraken:make', [
+        'name' => 'Post',
+        '--only' => 'controller',
+    ])->assertSuccessful();
+
+    $path = $this->generatedPath . '/app/Http/Controllers/Api/PostController.php';
+
+    expect(File::exists($path))->toBeTrue()
+        ->and(File::get($path))->toContain('namespace App\\Http\\Controllers\\Api;');
+});
+
+it('generates a web controller when requested', function (): void {
+    $this->artisan('kraken:make', [
+        'name' => 'Post',
+        '--only' => 'controller',
+        '--web' => true,
+    ])->assertSuccessful();
+
+    $path = $this->generatedPath . '/app/Http/Controllers/PostController.php';
+
+    expect(File::exists($path))->toBeTrue()
+        ->and(File::get($path))->toContain('namespace App\\Http\\Controllers;');
+});
+
+it('rejects conflicting blueprint options', function (): void {
+    $this->artisan('kraken:make', [
+        'name' => 'Post',
+        '--api' => true,
+        '--web' => true,
+    ])
+        ->expectsOutputToContain('Use only one blueprint option: --api or --web.')
+        ->assertFailed();
+});
+
+it('rejects invalid only option', function (): void {
+    $this->artisan('kraken:make', [
+        'name' => 'Post',
+        '--only' => 'migration',
+    ])
+        ->expectsOutputToContain('Invalid --only value. Use: model, controller, service or repository.')
+        ->assertFailed();
+});
+
+it('rejects invalid repository option', function (): void {
+    $this->artisan('kraken:make', [
+        'name' => 'Post',
+        '--repository' => 'eloquent',
+    ])
+        ->expectsOutputToContain('Invalid --repository value. Use: simple or relations.')
+        ->assertFailed();
+});
+
+it('uses migration belongs to attributes when they exist', function (): void {
+    File::ensureDirectoryExists($this->migrationPath);
+
+    $path = $this->migrationPath . '/2026_05_14_000001_create_posts_table.php';
+    $this->migrationFiles[] = $path;
+
+    File::put($path, <<<'PHP'
+<?php
+
+use Example\LaravelCrudKit\Attributes\BelongsTo;
+
+return new
+#[BelongsTo(['user'])]
+class {};
+PHP);
+
+    $this->artisan('kraken:make', [
+        'name' => 'Post',
+        '--only' => 'model',
+    ])->assertSuccessful();
+
+    $content = File::get($this->generatedPath . '/app/Models/Post.php');
+
+    expect($content)->toContain('public function user(): BelongsTo')
+        ->and($content)->not->toContain('public function category(): BelongsTo');
+});
+
+it('skips declared belongs to attributes without a matching foreign key column', function (): void {
+    File::ensureDirectoryExists($this->migrationPath);
+
+    $path = $this->migrationPath . '/2026_05_14_000002_create_posts_table.php';
+    $this->migrationFiles[] = $path;
+
+    File::put($path, <<<'PHP'
+<?php
+
+use Example\LaravelCrudKit\Attributes\BelongsTo;
+
+return new
+#[BelongsTo(['payment'])]
+class {};
+PHP);
+
+    $this->artisan('kraken:make', [
+        'name' => 'Post',
+        '--only' => 'model',
+    ])->assertSuccessful();
+
+    $content = File::get($this->generatedPath . '/app/Models/Post.php');
+
+    expect($content)->not->toContain('public function payment(): BelongsTo')
+        ->and($content)->not->toContain('public function user(): BelongsTo')
+        ->and($content)->not->toContain('public function category(): BelongsTo');
+});
+
+it('generates belongs to many from a pivot attribute for the first related model', function (): void {
+    File::ensureDirectoryExists($this->migrationPath);
+
+    $path = $this->migrationPath . '/2026_05_14_000003_create_role_user_table.php';
+    $this->migrationFiles[] = $path;
+
+    File::put($path, <<<'PHP'
+<?php
+
+use Example\LaravelCrudKit\Attributes\Pivot;
+
+return new
+#[Pivot(['role', 'user'])]
+class {};
+PHP);
+
+    $this->artisan('kraken:make', [
+        'name' => 'User',
+        '--only' => 'model',
+    ])->assertSuccessful();
+
+    $content = File::get($this->generatedPath . '/app/Models/User.php');
+
+    expect($content)->toContain('use Illuminate\\Database\\Eloquent\\Relations\\BelongsToMany;')
+        ->and($content)->toContain('public function roles(): BelongsToMany')
+        ->and($content)->toContain('return $this->belongsToMany(Role::class);');
+});
+
+it('generates belongs to many from a pivot attribute for the second related model', function (): void {
+    File::ensureDirectoryExists($this->migrationPath);
+
+    $path = $this->migrationPath . '/2026_05_14_000004_create_role_user_table.php';
+    $this->migrationFiles[] = $path;
+
+    File::put($path, <<<'PHP'
+<?php
+
+use Example\LaravelCrudKit\Attributes\Pivot;
+
+return new
+#[Pivot(['role', 'user'])]
+class {};
+PHP);
+
+    $this->artisan('kraken:make', [
+        'name' => 'Role',
+        '--only' => 'model',
+    ])->assertSuccessful();
+
+    $content = File::get($this->generatedPath . '/app/Models/Role.php');
+
+    expect($content)->toContain('use Illuminate\\Database\\Eloquent\\Relations\\BelongsToMany;')
+        ->and($content)->toContain('public function users(): BelongsToMany')
+        ->and($content)->toContain('return $this->belongsToMany(User::class);');
+});
+
+it('does not generate belongs to many when pivot has invalid relation count', function (): void {
+    File::ensureDirectoryExists($this->migrationPath);
+
+    $path = $this->migrationPath . '/2026_05_14_000005_create_permission_role_user_table.php';
+    $this->migrationFiles[] = $path;
+
+    File::put($path, <<<'PHP'
+<?php
+
+use Example\LaravelCrudKit\Attributes\Pivot;
+
+return new
+#[Pivot(['permission', 'role', 'user'])]
+class {};
+PHP);
+
+    $this->artisan('kraken:make', [
+        'name' => 'User',
+        '--only' => 'model',
+    ])->assertSuccessful();
+
+    $content = File::get($this->generatedPath . '/app/Models/User.php');
+
+    expect($content)->not->toContain('BelongsToMany')
+        ->and($content)->not->toContain('belongsToMany');
+});
+
+it('does not generate belongs to many when pivot foreign keys are missing', function (): void {
+    File::ensureDirectoryExists($this->migrationPath);
+
+    $path = $this->migrationPath . '/2026_05_14_000006_create_role_user_missing_fk_table.php';
+    $this->migrationFiles[] = $path;
+
+    File::put($path, <<<'PHP'
+<?php
+
+use Example\LaravelCrudKit\Attributes\Pivot;
+
+return new
+#[Pivot(['role', 'user_missing_fk'])]
+class {};
+PHP);
+
+    $this->artisan('kraken:make', [
+        'name' => 'UserMissingFk',
+        '--only' => 'model',
+    ])->assertSuccessful();
+
+    $content = File::get($this->generatedPath . '/app/Models/UserMissingFk.php');
+
+    expect($content)->not->toContain('BelongsToMany')
+        ->and($content)->not->toContain('belongsToMany');
+});
+
+it('does not generate belongs to many for pivots outside laravel convention', function (): void {
+    File::ensureDirectoryExists($this->migrationPath);
+
+    $path = $this->migrationPath . '/2026_05_14_000007_create_user_role_table.php';
+    $this->migrationFiles[] = $path;
+
+    File::put($path, <<<'PHP'
+<?php
+
+use Example\LaravelCrudKit\Attributes\Pivot;
+
+return new
+#[Pivot(['role', 'user'])]
+class {};
+PHP);
+
+    $this->artisan('kraken:make', [
+        'name' => 'User',
+        '--only' => 'model',
+    ])->assertSuccessful();
+
+    $content = File::get($this->generatedPath . '/app/Models/User.php');
+
+    expect($content)->not->toContain('BelongsToMany')
+        ->and($content)->not->toContain('belongsToMany');
+});
+
+it('generates belongs to and pivot belongs to many together', function (): void {
+    File::ensureDirectoryExists($this->migrationPath);
+
+    $postsPath = $this->migrationPath . '/2026_05_14_000008_create_posts_table.php';
+    $pivotPath = $this->migrationPath . '/2026_05_14_000009_create_post_tag_table.php';
+    $this->migrationFiles[] = $postsPath;
+    $this->migrationFiles[] = $pivotPath;
+
+    File::put($postsPath, <<<'PHP'
+<?php
+
+use Example\LaravelCrudKit\Attributes\BelongsTo;
+
+return new
+#[BelongsTo(['user'])]
+class {};
+PHP);
+
+    File::put($pivotPath, <<<'PHP'
+<?php
+
+use Example\LaravelCrudKit\Attributes\Pivot;
+
+return new
+#[Pivot(['post', 'tag'])]
+class {};
+PHP);
+
+    $this->artisan('kraken:make', [
+        'name' => 'Post',
+        '--only' => 'model',
+    ])->assertSuccessful();
+
+    $content = File::get($this->generatedPath . '/app/Models/Post.php');
+
+    expect($content)->toContain('use Illuminate\\Database\\Eloquent\\Relations\\BelongsTo;')
+        ->and($content)->toContain('use Illuminate\\Database\\Eloquent\\Relations\\BelongsToMany;')
+        ->and($content)->toContain('public function user(): BelongsTo')
+        ->and($content)->toContain('public function tags(): BelongsToMany');
+});
