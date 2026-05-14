@@ -24,7 +24,9 @@ abstract readonly class RelationAttribute
     private function normalize(array|string $relations): array
     {
         if (is_string($relations)) {
-            return [$relations];
+            $relation = trim($relations);
+
+            return $relation === '' ? [] : [$relation];
         }
 
         $normalized = [];

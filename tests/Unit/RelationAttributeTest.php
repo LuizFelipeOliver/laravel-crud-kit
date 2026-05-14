@@ -16,9 +16,9 @@ it('reads belongs to relations from an anonymous class', function (): void {
     expect($attribute->relations)->toBe(['payment', 'user']);
 });
 
-it('accepts a single belongs to many relation', function (): void {
+it('accepts and normalizes a single belongs to many relation', function (): void {
     $migration = new
-    #[BelongsToMany('role')]
+    #[BelongsToMany('  role  ')]
     class {};
 
     $attribute = (new ReflectionClass($migration))

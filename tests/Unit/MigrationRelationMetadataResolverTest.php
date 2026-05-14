@@ -21,7 +21,6 @@ it('returns empty metadata when create migration does not exist', function (): v
 
     expect($metadata->hasRelations())->toBeFalse()
         ->and($metadata->belongsTo)->toBe([])
-        ->and($metadata->belongsToMany)->toBe([])
         ->and($metadata->pivot)->toBe([]);
 });
 
@@ -33,11 +32,9 @@ it('reads relation attributes from a create migration', function (): void {
 <?php
 
 use Example\LaravelCrudKit\Attributes\BelongsTo;
-use Example\LaravelCrudKit\Attributes\BelongsToMany;
 
 return new
 #[BelongsTo(['payment', 'user'])]
-#[BelongsToMany('coupon')]
 class {};
 PHP);
 
@@ -45,7 +42,6 @@ PHP);
 
     expect($metadata->hasRelations())->toBeTrue()
         ->and($metadata->belongsTo)->toBe(['payment', 'user'])
-        ->and($metadata->belongsToMany)->toBe(['coupon'])
         ->and($metadata->pivot)->toBe([]);
 });
 
@@ -67,7 +63,6 @@ PHP);
 
     expect($metadata->hasRelations())->toBeTrue()
         ->and($metadata->belongsTo)->toBe([])
-        ->and($metadata->belongsToMany)->toBe([])
         ->and($metadata->pivot)->toBe(['role', 'user']);
 });
 
@@ -83,6 +78,21 @@ use Example\LaravelCrudKit\Attributes\BelongsTo;
 return new
 #[BelongsTo('payment')]
 class {};
+PHP);
+
+    $metadata = app(MigrationRelationMetadataResolver::class)->resolve('orders');
+
+    expect($metadata->hasRelations())->toBeFalse();
+});
+
+it('ignores create migrations that do not return an object', function (): void {
+    $path = $this->migrationPath . '/2026_05_14_000005_create_orders_table.php';
+    $this->migrationFiles[] = $path;
+
+    File::put($path, <<<'PHP'
+<?php
+
+return true;
 PHP);
 
     $metadata = app(MigrationRelationMetadataResolver::class)->resolve('orders');

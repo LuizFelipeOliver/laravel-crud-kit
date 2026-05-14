@@ -3,7 +3,6 @@
 namespace Example\LaravelCrudKit\Metadata;
 
 use Example\LaravelCrudKit\Attributes\BelongsTo;
-use Example\LaravelCrudKit\Attributes\BelongsToMany;
 use Example\LaravelCrudKit\Attributes\Pivot;
 use Example\LaravelCrudKit\Attributes\RelationAttribute;
 use Illuminate\Support\Facades\File;
@@ -44,7 +43,6 @@ final class MigrationRelationMetadataResolver
 
         return new MigrationRelationMetadata(
             belongsTo: $this->relations($reflection, BelongsTo::class),
-            belongsToMany: $this->relations($reflection, BelongsToMany::class),
             pivot: $this->relations($reflection, Pivot::class),
         );
     }
@@ -133,8 +131,8 @@ final class MigrationRelationMetadataResolver
         $realPath = realpath($path);
 
         if (
-            $migrationsDir == false ||
-            $realPath == false ||
+            $migrationsDir === false ||
+            $realPath === false ||
             ! str_starts_with($realPath, $migrationsDir . DIRECTORY_SEPARATOR)
         ) {
             return null;
@@ -142,7 +140,7 @@ final class MigrationRelationMetadataResolver
 
         $migration = require $realPath;
 
-        return $migration;
+        return is_object($migration) ? $migration : null;
     }
 
     private function tableFromCreateMigrationPath(string $path): ?string
