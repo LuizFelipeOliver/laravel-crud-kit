@@ -5,6 +5,7 @@ namespace Example\LaravelCrudKit\Console;
 use Example\LaravelCrudKit\Generators\Generator;
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
+use Throwable;
 
 class MakeCommand extends Command
 {
@@ -24,6 +25,8 @@ class MakeCommand extends Command
 
     public function handle(Generator $generator): int
     {
+        $startedAt = microtime(true);
+
         if ($this->hasConflictingBlueprintOptions()) {
             return self::FAILURE;
         }
@@ -38,15 +41,24 @@ class MakeCommand extends Command
 
         $name = Str::studly($this->argument('name'));
 
-        $generator->generate(
-            name: $name,
-            table: $this->option('table'),
-            blueprint: $this->blueprint(),
-            only: $this->stringOption('only'),
-            repository: $this->stringOption('repository'),
-        );
+        try {
+            $result = $generator->generate(
+                name: $name,
+                table: $this->option('table'),
+                blueprint: $this->blueprint(),
+                only: $this->stringOption('only'),
+                repository: $this->stringOption('repository'),
+            );
+        } catch (Throwable $exception) {
+            $this->components->error('Kraken could not generate files: ' . $exception->getMessage());
+
+            return self::FAILURE;
+        }
 
         $this->components->info("Files for {$name} generated.");
+        $this->displayPaths('Created files', $result['created']);
+        $this->displayPaths('Skipped existing files', $result['skipped']);
+        $this->components->info('Completed in ' . $this->elapsedTime($startedAt) . '.');
 
         return self::SUCCESS;
     }
@@ -116,5 +128,26 @@ class MakeCommand extends Command
         $value = $this->option($option);
 
         return is_string($value) ? $value : null;
+    }
+
+    /**
+     * @param array<int, string> $paths
+     */
+    private function displayPaths(string $title, array $paths): void
+    {
+        if ($paths === []) {
+            return;
+        }
+
+        $this->line($title . ':');
+
+        foreach ($paths as $path) {
+            $this->line("  - {$path}");
+        }
+    }
+
+    private function elapsedTime(float $startedAt): string
+    {
+        return number_format(microtime(true) - $startedAt, 2) . 's';
     }
 }

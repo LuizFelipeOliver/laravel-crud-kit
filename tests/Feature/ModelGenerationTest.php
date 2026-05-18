@@ -251,6 +251,36 @@ it('generates an api controller by default', function (): void {
         ->and(File::get($path))->toContain('namespace App\\Http\\Controllers\\Api;');
 });
 
+it('reports created file paths and elapsed time', function (): void {
+    $path = $this->generatedPath . '/app/Http/Controllers/Api/PostController.php';
+
+    $this->artisan('kraken:make', [
+        'name' => 'Post',
+        '--only' => 'controller',
+    ])
+        ->expectsOutputToContain('Created files:')
+        ->expectsOutputToContain($path)
+        ->expectsOutputToContain('Completed in ')
+        ->assertSuccessful();
+});
+
+it('reports skipped existing file paths', function (): void {
+    $path = $this->generatedPath . '/app/Http/Controllers/Api/PostController.php';
+
+    $this->artisan('kraken:make', [
+        'name' => 'Post',
+        '--only' => 'controller',
+    ])->assertSuccessful();
+
+    $this->artisan('kraken:make', [
+        'name' => 'Post',
+        '--only' => 'controller',
+    ])
+        ->expectsOutputToContain('Skipped existing files:')
+        ->expectsOutputToContain($path)
+        ->assertSuccessful();
+});
+
 it('generates a web controller when requested', function (): void {
     $this->artisan('kraken:make', [
         'name' => 'Post',
@@ -289,6 +319,17 @@ it('rejects invalid repository option', function (): void {
         '--repository' => 'eloquent',
     ])
         ->expectsOutputToContain('Invalid --repository value. Use: simple or relations.')
+        ->assertFailed();
+});
+
+it('reports generation errors', function (): void {
+    config()->set('generator.default_blueprint', 'admin');
+
+    $this->artisan('kraken:make', [
+        'name' => 'Post',
+        '--only' => 'controller',
+    ])
+        ->expectsOutputToContain('Kraken could not generate files: Blueprint [admin] is not supported.')
         ->assertFailed();
 });
 
