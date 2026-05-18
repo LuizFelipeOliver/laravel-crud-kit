@@ -122,8 +122,6 @@ final class Generator
             $context->shouldGenerate('service') ? $this->service($context) : null,
             $context->shouldGenerate('controller') ? $this->controller($context) : null,
             $context->shouldGenerate('controller') ? $this->route($context) : null,
-            $context->withTests ? $this->factory($context) : null,
-            $context->withTests ? $this->featureTest($context) : null,
             $generateTestsArtifacts ? $this->factory($context) : null,
             $generateTestsArtifacts ? $this->featureTest($context) : null,
         ]));
