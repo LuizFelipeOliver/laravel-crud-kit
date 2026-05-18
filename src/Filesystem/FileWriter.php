@@ -6,6 +6,7 @@ use Example\LaravelCrudKit\Generators\FileDefinition;
 use Example\LaravelCrudKit\Template\StubRenderer;
 use Illuminate\Support\Facades\File;
 use RuntimeException;
+use Throwable;
 
 final class FileWriter
 {
@@ -19,12 +20,16 @@ final class FileWriter
             return false;
         }
 
-        File::ensureDirectoryExists(dirname($file->path));
+        try {
+            File::ensureDirectoryExists(dirname($file->path));
 
-        $bytes = File::put(
-            $file->path,
-            $this->renderer->render($file->stub, $file->replacements)
-        );
+            $bytes = File::put(
+                $file->path,
+                $this->renderer->render($file->stub, $file->replacements)
+            );
+        } catch (Throwable $exception) {
+            throw new RuntimeException("Could not write file [{$file->path}].", previous: $exception);
+        }
 
         if ($bytes === false) {
             throw new RuntimeException("Could not write file [{$file->path}].");
