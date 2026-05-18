@@ -115,6 +115,7 @@ final class Generator
      */
     private function files(GeneratorContext $context): array
     {
+        $generateTestsArtifacts = $context->withTests && $context->only === null;
         return array_values(array_filter([
             $context->shouldGenerate('model') ? $this->model($context) : null,
             $context->shouldGenerate('repository') ? $this->repository($context) : null,
@@ -123,6 +124,8 @@ final class Generator
             $context->shouldGenerate('controller') ? $this->route($context) : null,
             $context->withTests ? $this->factory($context) : null,
             $context->withTests ? $this->featureTest($context) : null,
+            $generateTestsArtifacts ? $this->factory($context) : null,
+            $generateTestsArtifacts ? $this->featureTest($context) : null,
         ]));
     }
 
