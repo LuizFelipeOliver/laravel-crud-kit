@@ -10,6 +10,12 @@ Na configuração inicial, o pacote gera uma arquitetura em camadas com:
 - Controller
 - Service
 - Repository
+- Route
+
+Opcionalmente, com `--test`, também gera:
+
+- Factory
+- Feature test
 
 ## Requisitos
 
@@ -41,7 +47,12 @@ app/Models/User.php
 app/Http/Controllers/Api/UserController.php
 app/Services/UserService.php
 app/Repositories/UserRepository.php
+routes/api.php
 ```
+
+Ao concluir, o comando informa os arquivos criados, os arquivos ignorados por
+já existirem e o tempo total de execução. Se a geração falhar, o comando exibe
+um erro no terminal e retorna falha.
 
 ## Blueprints
 
@@ -88,6 +99,40 @@ controller
 service
 repository
 ```
+
+Quando `--only=controller` é usado, o Kraken também gera a rota correspondente,
+porque a rota faz parte da superfície do controller.
+
+## Gerar Teste Feature
+
+Use `--test` para gerar também uma factory e um teste Feature básico:
+
+```bash
+php artisan kraken:make User --test
+```
+
+No blueprint `api`, isso gera:
+
+```text
+database/factories/UserFactory.php
+tests/Feature/Api/UserControllerTest.php
+```
+
+O teste gerado valida o endpoint `index` usando a rota nomeada do resource:
+
+```php
+$this->getJson(route('users.index'))
+    ->assertOk();
+```
+
+No blueprint `web`, o teste é gerado em:
+
+```text
+tests/Feature/Web/UserControllerTest.php
+```
+
+A factory só é gerada quando `--test` é informado. As rotas são geradas junto
+com o controller por padrão.
 
 ## Repository
 
@@ -137,6 +182,8 @@ BlogPost -> blog_posts
 Quando a tabela existe, a Model gerada inclui:
 
 - atributo `#[Fillable([...])]` com base nas colunas da tabela
+- atributo `#[Table(...)]`
+- atributo `#[WithoutTimestamps]` quando a tabela não tem timestamps
 - `casts()` com base nos tipos das colunas
 - `SoftDeletes` quando a tabela tem a coluna `deleted_at`
 - relacionamentos `belongsTo` com base nas foreign keys da tabela
@@ -164,11 +211,33 @@ Relacionamentos inversos e pivots não são gerados automaticamente por enquanto
 ```text
 User::posts()
 Category::posts()
-Post::tags()
 ```
 
-Esse comportamento é intencional. Futuramente, o pacote deve suportar uma opção
-como `--relations=none|belongs-to|all`, seguindo convenções internas rígidas.
+Esse comportamento é intencional. O Kraken só gera muitos-para-muitos quando a
+intenção está declarada explicitamente em uma migration com `#[Pivot(...)]`.
+
+Exemplo:
+
+```php
+use Example\LaravelCrudKit\Attributes\Pivot;
+
+return new
+#[Pivot(['post', 'tag'])]
+class {};
+```
+
+Com uma tabela `post_tag` seguindo a convenção do Laravel e contendo as foreign
+keys esperadas, o Kraken pode gerar:
+
+```php
+/**
+ * @return BelongsToMany<Tag, $this>
+ */
+public function tags(): BelongsToMany
+{
+    return $this->belongsToMany(Tag::class);
+}
+```
 
 Convenções planejadas:
 
@@ -188,6 +257,9 @@ category_product
 
 Tabelas com colunas de negócio, como `posts`, `orders` e `invoices`, não devem
 ser tratadas como pivot.
+
+O atributo `#[BelongsToMany(...)]` existe no pacote, mas ainda não é conectado
+na V1. Para muitos-para-muitos, use `#[Pivot(...)]`.
 
 ## Tabela Personalizada
 
@@ -252,6 +324,11 @@ return [
         'models' => app_path('Models'),
         'services' => app_path('Services'),
         'repositories' => app_path('Repositories'),
+        'factories' => database_path('factories'),
+        'api_tests' => base_path('tests/Feature/Api'),
+        'web_tests' => base_path('tests/Feature/Web'),
+        'api_routes' => base_path('routes/api.php'),
+        'web_routes' => base_path('routes/web.php'),
     ],
 
     'namespaces' => [
@@ -260,6 +337,7 @@ return [
         'models' => 'App\\Models',
         'services' => 'App\\Services',
         'repositories' => 'App\\Repositories',
+        'factories' => 'Database\\Factories',
     ],
 
     'repository' => [
@@ -291,11 +369,19 @@ A estrutura padrão é:
 stubs/vendor/kraken/
 ├── api/
 │   └── controller.stub
+├── database/
+│   └── factory.stub
+├── routes/
+│   ├── api-resource.stub
+│   └── web-resource.stub
 ├── shared/
 │   ├── model.stub
 │   ├── repository.stub
 │   ├── repository-relations.stub
 │   └── service.stub
+├── tests/
+│   ├── api-feature.stub
+│   └── web-feature.stub
 └── web/
     └── controller.stub
 ```

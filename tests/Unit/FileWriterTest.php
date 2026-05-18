@@ -62,3 +62,50 @@ it('throws when it cannot write the file', function (): void {
         path: $blockedPath . '/Post.php',
     ));
 })->throws(RuntimeException::class, 'Could not write file');
+
+it('appends rendered content to an existing file', function (): void {
+    File::put($this->stubPath, '\Illuminate\Support\Facades\Route::apiResource(\'{{ route }}\', Controller::class);');
+
+    $path = $this->generatedPath . '/routes/api.php';
+    File::ensureDirectoryExists(dirname($path));
+    File::put($path, "<?php\n\nuse Illuminate\\Support\\Facades\\Route;\n");
+
+    $written = app(FileWriter::class)->write(new FileDefinition(
+        stub: $this->stub,
+        path: $path,
+        replacements: [
+            '{{ route }}' => 'posts',
+        ],
+        mode: 'append',
+    ));
+
+    expect($written)->toBeTrue()
+        ->and(File::get($path))->toContain("\Illuminate\Support\Facades\Route::apiResource('posts', Controller::class);");
+});
+
+it('does not append duplicate content', function (): void {
+    File::put($this->stubPath, '\Illuminate\Support\Facades\Route::apiResource(\'{{ route }}\', Controller::class);');
+
+    $path = $this->generatedPath . '/routes/api.php';
+
+    app(FileWriter::class)->write(new FileDefinition(
+        stub: $this->stub,
+        path: $path,
+        replacements: [
+            '{{ route }}' => 'posts',
+        ],
+        mode: 'append',
+    ));
+
+    $written = app(FileWriter::class)->write(new FileDefinition(
+        stub: $this->stub,
+        path: $path,
+        replacements: [
+            '{{ route }}' => 'posts',
+        ],
+        mode: 'append',
+    ));
+
+    expect($written)->toBeFalse()
+        ->and(substr_count(File::get($path), "\Illuminate\Support\Facades\Route::apiResource('posts', Controller::class);"))->toBe(1);
+});

@@ -13,6 +13,7 @@ final readonly class GeneratorContext
         public string $blueprint,
         public ?string $only,
         public string $repository,
+        public bool $withTests,
         public array $paths,
         public array $namespaces,
         public array $metadata = [],

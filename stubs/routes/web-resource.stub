@@ -1,0 +1,1 @@
+\Illuminate\Support\Facades\Route::resource('{{ route }}', \{{ controller_namespace }}\{{ name }}Controller::class)->only(['index', 'show']);

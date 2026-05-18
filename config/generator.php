@@ -9,6 +9,11 @@ return [
         'models' => app_path('Models'),
         'services' => app_path('Services'),
         'repositories' => app_path('Repositories'),
+        'factories' => database_path('factories'),
+        'api_tests' => base_path('tests/Feature/Api'),
+        'web_tests' => base_path('tests/Feature/Web'),
+        'api_routes' => base_path('routes/api.php'),
+        'web_routes' => base_path('routes/web.php'),
     ],
 
     'namespaces' => [
@@ -17,6 +22,7 @@ return [
         'models' => 'App\\Models',
         'services' => 'App\\Services',
         'repositories' => 'App\\Repositories',
+        'factories' => 'Database\\Factories',
     ],
 
     'repository' => [

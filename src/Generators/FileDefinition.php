@@ -8,5 +8,6 @@ final readonly class FileDefinition
         public string $stub,
         public string $path,
         public array $replacements = [],
+        public string $mode = 'write',
     ) {}
 }

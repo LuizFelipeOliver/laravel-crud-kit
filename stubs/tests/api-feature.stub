@@ -1,0 +1,10 @@
+<?php
+
+use Illuminate\Foundation\Testing\RefreshDatabase;
+
+uses(RefreshDatabase::class);
+
+it('lists {{ route }}', function (): void {
+    $this->getJson(route('{{ route }}.index'))
+        ->assertOk();
+});
