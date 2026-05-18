@@ -12,6 +12,7 @@ beforeEach(function (): void {
 
 afterEach(function (): void {
     File::delete($this->publishedStubPath);
+    File::deleteDirectory(base_path('stubs/vendor/kraken'));
 });
 
 it('resolves published kraken stubs before internal stubs', function (): void {
