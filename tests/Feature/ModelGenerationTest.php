@@ -14,6 +14,11 @@ beforeEach(function (): void {
         'models' => $this->generatedPath . '/app/Models',
         'services' => $this->generatedPath . '/app/Services',
         'repositories' => $this->generatedPath . '/app/Repositories',
+        'factories' => $this->generatedPath . '/database/factories',
+        'api_tests' => $this->generatedPath . '/tests/Feature/Api',
+        'web_tests' => $this->generatedPath . '/tests/Feature/Web',
+        'api_routes' => $this->generatedPath . '/routes/api.php',
+        'web_routes' => $this->generatedPath . '/routes/web.php',
     ]);
 
     config()->set('generator.namespaces', [
@@ -22,6 +27,7 @@ beforeEach(function (): void {
         'models' => 'App\\Models',
         'services' => 'App\\Services',
         'repositories' => 'App\\Repositories',
+        'factories' => 'Database\\Factories',
     ]);
 
     Schema::shouldReceive('hasTable')
@@ -260,6 +266,33 @@ it('generates an api controller by default', function (): void {
         ->and(File::get($path))->toContain('namespace App\\Http\\Controllers\\Api;');
 });
 
+it('generates an api route with the controller by default', function (): void {
+    $this->artisan('kraken:make', [
+        'name' => 'Post',
+        '--only' => 'controller',
+    ])->assertSuccessful();
+
+    $content = File::get($this->generatedPath . '/routes/api.php');
+
+    expect($content)->toContain('\Illuminate\Support\Facades\Route::apiResource(\'posts\', \App\Http\Controllers\Api\PostController::class);');
+});
+
+it('does not duplicate an existing generated route', function (): void {
+    $this->artisan('kraken:make', [
+        'name' => 'Post',
+        '--only' => 'controller',
+    ])->assertSuccessful();
+
+    $this->artisan('kraken:make', [
+        'name' => 'Post',
+        '--only' => 'controller',
+    ])->assertSuccessful();
+
+    $content = File::get($this->generatedPath . '/routes/api.php');
+
+    expect(substr_count($content, '\Illuminate\Support\Facades\Route::apiResource(\'posts\', \App\Http\Controllers\Api\PostController::class);'))->toBe(1);
+});
+
 it('generates only the requested file type', function (string $only, string $expectedPath): void {
     $this->artisan('kraken:make', [
         'name' => 'Post',
@@ -277,6 +310,33 @@ it('generates only the requested file type', function (string $only, string $exp
     'service' => ['service', '/app/Services/PostService.php'],
     'controller' => ['controller', '/app/Http/Controllers/Api/PostController.php'],
 ]);
+
+it('does not generate factory or feature test by default', function (): void {
+    $this->artisan('kraken:make', [
+        'name' => 'Post',
+    ])->assertSuccessful();
+
+    expect(File::exists($this->generatedPath . '/database/factories/PostFactory.php'))->toBeFalse()
+        ->and(File::exists($this->generatedPath . '/tests/Feature/Api/PostControllerTest.php'))->toBeFalse();
+});
+
+it('generates a factory and api feature test when requested', function (): void {
+    $this->artisan('kraken:make', [
+        'name' => 'Post',
+        '--test' => true,
+    ])->assertSuccessful();
+
+    $factory = File::get($this->generatedPath . '/database/factories/PostFactory.php');
+    $test = File::get($this->generatedPath . '/tests/Feature/Api/PostControllerTest.php');
+    $model = File::get($this->generatedPath . '/app/Models/Post.php');
+
+    expect($factory)->toContain('namespace Database\\Factories;')
+        ->and($factory)->toContain('class PostFactory extends Factory')
+        ->and($test)->toContain("route('posts.index')")
+        ->and($test)->toContain('getJson')
+        ->and($model)->toContain('use Illuminate\\Database\\Eloquent\\Factories\\HasFactory;')
+        ->and($model)->toContain('use HasFactory;');
+});
 
 it('generates all files when only is omitted', function (): void {
     $this->artisan('kraken:make', [
@@ -356,6 +416,21 @@ it('generates a web controller when requested', function (): void {
 
     expect(File::exists($path))->toBeTrue()
         ->and(File::get($path))->toContain('namespace App\\Http\\Controllers;');
+});
+
+it('generates a web route and web feature test when requested', function (): void {
+    $this->artisan('kraken:make', [
+        'name' => 'Post',
+        '--web' => true,
+        '--test' => true,
+    ])->assertSuccessful();
+
+    $route = File::get($this->generatedPath . '/routes/web.php');
+    $test = File::get($this->generatedPath . '/tests/Feature/Web/PostControllerTest.php');
+
+    expect($route)->toContain('\Illuminate\Support\Facades\Route::resource(\'posts\', \App\Http\Controllers\PostController::class)->only([\'index\', \'show\']);')
+        ->and($test)->toContain("route('posts.index')")
+        ->and($test)->toContain('renders the posts index page');
 });
 
 it('rejects conflicting blueprint options', function (): void {

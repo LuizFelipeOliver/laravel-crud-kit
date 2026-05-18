@@ -19,7 +19,8 @@ class MakeCommand extends Command
         {--api : Generate files using the API blueprint}
         {--web : Generate files using the Web/Inertia blueprint}
         {--only= : Generate only one file type: model, controller, service or repository}
-        {--repository= : Repository type: simple or relations}';
+        {--repository= : Repository type: simple or relations}
+        {--test : Generate a Feature test and factory}';
 
     protected $description = 'Generate architecture files';
 
@@ -48,6 +49,7 @@ class MakeCommand extends Command
                 blueprint: $this->blueprint(),
                 only: $this->stringOption('only'),
                 repository: $this->stringOption('repository'),
+                withTests: (bool) $this->option('test'),
             );
         } catch (Throwable $exception) {
             $this->components->error('Kraken could not generate files: ' . $exception->getMessage());

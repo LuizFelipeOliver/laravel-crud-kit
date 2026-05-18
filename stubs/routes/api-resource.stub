@@ -1,0 +1,1 @@
+\Illuminate\Support\Facades\Route::apiResource('{{ route }}', \{{ controller_namespace }}\{{ name }}Controller::class);

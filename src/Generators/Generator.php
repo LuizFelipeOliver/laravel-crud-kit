@@ -40,6 +40,7 @@ final class Generator
         ?string $blueprint = null,
         ?string $only = null,
         ?string $repository = null,
+        bool $withTests = false,
         array $metadata = [],
     ): array {
         $context = $this->makeContext(
@@ -48,6 +49,7 @@ final class Generator
             blueprint: $blueprint,
             only: $only,
             repository: $repository,
+            withTests: $withTests,
             metadata: $metadata,
         );
 
@@ -79,6 +81,7 @@ final class Generator
         ?string $blueprint,
         ?string $only,
         ?string $repository,
+        bool $withTests,
         array $metadata,
     ): GeneratorContext {
         $model = Str::studly($name);
@@ -94,6 +97,7 @@ final class Generator
             blueprint: $blueprint ?? config('generator.default_blueprint', 'api'),
             only: $only,
             repository: $resolvedRepository,
+            withTests: $withTests,
             paths: array_merge($this->defaultPaths(), config('generator.paths', [])),
             namespaces: array_merge($this->defaultNamespaces(), config('generator.namespaces', [])),
             metadata: array_merge(
@@ -111,11 +115,15 @@ final class Generator
      */
     private function files(GeneratorContext $context): array
     {
+        $generateTestsArtifacts = $context->withTests && $context->only === null;
         return array_values(array_filter([
             $context->shouldGenerate('model') ? $this->model($context) : null,
             $context->shouldGenerate('repository') ? $this->repository($context) : null,
             $context->shouldGenerate('service') ? $this->service($context) : null,
             $context->shouldGenerate('controller') ? $this->controller($context) : null,
+            $context->shouldGenerate('controller') ? $this->route($context) : null,
+            $generateTestsArtifacts ? $this->factory($context) : null,
+            $generateTestsArtifacts ? $this->featureTest($context) : null,
         ]));
     }
 
@@ -127,11 +135,55 @@ final class Generator
             replacements: [
                 '{{ namespace }}' => $context->namespace('models'),
                 '{{ name }}' => $context->model,
-                '{{ imports }}' => $context->metadata['imports'] ?? '',
+                '{{ imports }}' => $this->modelImports($context),
                 '{{ attributes }}' => $context->metadata['attributes'] ?? '',
-                '{{ uses }}' => $context->metadata['uses'] ?? '',
+                '{{ uses }}' => $this->modelUses($context),
                 '{{ casts }}' => $context->metadata['casts'] ?? '',
                 '{{ relationships }}' => $context->metadata['relationships'] ?? '',
+            ],
+        );
+    }
+
+    private function route(GeneratorContext $context): FileDefinition
+    {
+        $stub = $context->blueprint === 'web' ? 'routes/web-resource.stub' : 'routes/api-resource.stub';
+        $path = $context->blueprint === 'web' ? 'web_routes' : 'api_routes';
+        $namespace = $context->blueprint === 'web' ? 'web_controller' : 'api_controller';
+
+        return new FileDefinition(
+            stub: $stub,
+            path: $context->paths[$path],
+            replacements: [
+                '{{ controller_namespace }}' => $context->namespace($namespace),
+                '{{ name }}' => $context->model,
+                '{{ route }}' => $context->plural,
+            ],
+            mode: 'append',
+        );
+    }
+
+    private function factory(GeneratorContext $context): FileDefinition
+    {
+        return new FileDefinition(
+            stub: 'database/factory.stub',
+            path: $context->path('factories', "{$context->model}Factory.php"),
+            replacements: [
+                '{{ namespace }}' => $context->namespace('factories'),
+                '{{ model_namespace }}' => $context->namespace('models'),
+                '{{ name }}' => $context->model,
+                '{{ model }}' => $context->model,
+            ],
+        );
+    }
+
+    private function featureTest(GeneratorContext $context): FileDefinition
+    {
+        return new FileDefinition(
+            stub: $context->blueprint === 'web' ? 'tests/web-feature.stub' : 'tests/api-feature.stub',
+            path: $context->path($context->blueprint === 'web' ? 'web_tests' : 'api_tests', "{$context->model}ControllerTest.php"),
+            replacements: [
+                '{{ route }}' => $context->plural,
+                '{{ name }}' => $context->model,
             ],
         );
     }
@@ -201,6 +253,11 @@ final class Generator
             'models' => app_path('Models'),
             'services' => app_path('Services'),
             'repositories' => app_path('Repositories'),
+            'factories' => database_path('factories'),
+            'api_tests' => base_path('tests/Feature/Api'),
+            'web_tests' => base_path('tests/Feature/Web'),
+            'api_routes' => base_path('routes/api.php'),
+            'web_routes' => base_path('routes/web.php'),
         ];
     }
 
@@ -215,7 +272,29 @@ final class Generator
             'models' => 'App\\Models',
             'services' => 'App\\Services',
             'repositories' => 'App\\Repositories',
+            'factories' => 'Database\\Factories',
         ];
+    }
+
+    private function modelImports(GeneratorContext $context): string
+    {
+        $imports = $context->metadata['imports'] ?? '';
+
+        if (! $context->withTests) {
+            return $imports;
+        }
+
+        return $imports . "\nuse Illuminate\\Database\\Eloquent\\Factories\\HasFactory;";
+    }
+
+    private function modelUses(GeneratorContext $context): string
+    {
+        $uses = array_filter([
+            $context->withTests ? '    use HasFactory;' : '',
+            $context->metadata['uses'] ?? '',
+        ]);
+
+        return implode("\n", $uses);
     }
 
     private function shouldResolveMetadata(?string $only, string $repository): bool
