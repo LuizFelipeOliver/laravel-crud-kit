@@ -32,6 +32,7 @@ final class Generator
 
     /**
      * @param array<string, mixed> $metadata
+     * @return array{created: array<int, string>, skipped: array<int, string>}
      */
     public function generate(
         string $name,
@@ -40,7 +41,7 @@ final class Generator
         ?string $only = null,
         ?string $repository = null,
         array $metadata = [],
-    ): void {
+    ): array {
         $context = $this->makeContext(
             name: $name,
             table: $table,
@@ -50,9 +51,23 @@ final class Generator
             metadata: $metadata,
         );
 
+        $created = [];
+        $skipped = [];
+
         foreach ($this->files($context) as $file) {
-            $this->writer->write($file);
+            if ($this->writer->write($file)) {
+                $created[] = $file->path;
+
+                continue;
+            }
+
+            $skipped[] = $file->path;
         }
+
+        return [
+            'created' => $created,
+            'skipped' => $skipped,
+        ];
     }
 
     /**
