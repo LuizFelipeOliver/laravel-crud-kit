@@ -333,6 +333,22 @@ it('reports generation errors', function (): void {
         ->assertFailed();
 });
 
+it('reports write errors thrown during generation', function (): void {
+    $blockedPath = $this->generatedPath . '/blocked';
+
+    File::ensureDirectoryExists($this->generatedPath);
+    File::put($blockedPath, 'not a directory');
+
+    config()->set('generator.paths.api_controller', $blockedPath . '/Api');
+
+    $this->artisan('kraken:make', [
+        'name' => 'Post',
+        '--only' => 'controller',
+    ])
+        ->expectsOutputToContain('Kraken could not generate files:')
+        ->assertFailed();
+});
+
 it('uses migration belongs to attributes when they exist', function (): void {
     File::ensureDirectoryExists($this->migrationPath);
 

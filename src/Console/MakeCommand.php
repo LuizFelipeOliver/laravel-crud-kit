@@ -55,7 +55,14 @@ class MakeCommand extends Command
             return self::FAILURE;
         }
 
-        $this->components->info("Files for {$name} generated.");
+        if ($result['created'] !== []) {
+            $this->components->info("Files for {$name} generated.");
+        } elseif ($result['skipped'] !== []) {
+            $this->components->info("No new files were generated for {$name}.");
+        } else {
+            $this->components->info("No files to generate for {$name}.");
+        }
+
         $this->displayPaths('Created files', $result['created']);
         $this->displayPaths('Skipped existing files', $result['skipped']);
         $this->components->info('Completed in ' . $this->elapsedTime($startedAt) . '.');
@@ -139,10 +146,10 @@ class MakeCommand extends Command
             return;
         }
 
-        $this->line($title . ':');
+        $this->components->info($title . ':');
 
         foreach ($paths as $path) {
-            $this->line("  - {$path}");
+            $this->components->twoColumnDetail('', $path);
         }
     }
 
