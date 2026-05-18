@@ -35,6 +35,7 @@ beforeEach(function (): void {
             'post_tag',
             'role_user',
             'role_user_missing_fk',
+            'system_users',
             'user_role',
         ], true));
 
@@ -49,6 +50,7 @@ beforeEach(function (): void {
             ['name' => 'post_tag'],
             ['name' => 'role_user'],
             ['name' => 'user_role'],
+            ['name' => 'system_users'],
         ]);
 
     Schema::shouldReceive('getColumns')
@@ -112,6 +114,13 @@ beforeEach(function (): void {
                 ['name' => 'id', 'type_name' => 'bigint'],
                 ['name' => 'role_id', 'type_name' => 'bigint'],
                 ['name' => 'user_id', 'type_name' => 'bigint'],
+                ['name' => 'created_at', 'type_name' => 'timestamp'],
+                ['name' => 'updated_at', 'type_name' => 'timestamp'],
+            ],
+            'system_users' => [
+                ['name' => 'id', 'type_name' => 'bigint'],
+                ['name' => 'email', 'type_name' => 'varchar'],
+                ['name' => 'is_active', 'type_name' => 'boolean'],
                 ['name' => 'created_at', 'type_name' => 'timestamp'],
                 ['name' => 'updated_at', 'type_name' => 'timestamp'],
             ],
@@ -249,6 +258,61 @@ it('generates an api controller by default', function (): void {
 
     expect(File::exists($path))->toBeTrue()
         ->and(File::get($path))->toContain('namespace App\\Http\\Controllers\\Api;');
+});
+
+it('generates only the requested file type', function (string $only, string $expectedPath): void {
+    $this->artisan('kraken:make', [
+        'name' => 'Post',
+        '--only' => $only,
+    ])->assertSuccessful();
+
+    expect(File::exists($this->generatedPath . $expectedPath))->toBeTrue()
+        ->and(File::exists($this->generatedPath . '/app/Models/Post.php'))->toBe($only === 'model')
+        ->and(File::exists($this->generatedPath . '/app/Repositories/PostRepository.php'))->toBe($only === 'repository')
+        ->and(File::exists($this->generatedPath . '/app/Services/PostService.php'))->toBe($only === 'service')
+        ->and(File::exists($this->generatedPath . '/app/Http/Controllers/Api/PostController.php'))->toBe($only === 'controller');
+})->with([
+    'model' => ['model', '/app/Models/Post.php'],
+    'repository' => ['repository', '/app/Repositories/PostRepository.php'],
+    'service' => ['service', '/app/Services/PostService.php'],
+    'controller' => ['controller', '/app/Http/Controllers/Api/PostController.php'],
+]);
+
+it('generates all files when only is omitted', function (): void {
+    $this->artisan('kraken:make', [
+        'name' => 'Post',
+    ])->assertSuccessful();
+
+    expect(File::exists($this->generatedPath . '/app/Models/Post.php'))->toBeTrue()
+        ->and(File::exists($this->generatedPath . '/app/Repositories/PostRepository.php'))->toBeTrue()
+        ->and(File::exists($this->generatedPath . '/app/Services/PostService.php'))->toBeTrue()
+        ->and(File::exists($this->generatedPath . '/app/Http/Controllers/Api/PostController.php'))->toBeTrue();
+});
+
+it('generates a repository with resolved relations when requested', function (): void {
+    $this->artisan('kraken:make', [
+        'name' => 'Post',
+        '--only' => 'repository',
+        '--repository' => 'relations',
+    ])->assertSuccessful();
+
+    $content = File::get($this->generatedPath . '/app/Repositories/PostRepository.php');
+
+    expect($content)->toContain("->with(['user', 'category'])");
+});
+
+it('uses a custom table when requested', function (): void {
+    $this->artisan('kraken:make', [
+        'name' => 'User',
+        '--only' => 'model',
+        '--table' => 'system_users',
+    ])->assertSuccessful();
+
+    $content = File::get($this->generatedPath . '/app/Models/User.php');
+
+    expect($content)->toContain("#[Table('system_users')]")
+        ->and($content)->toContain("#[Fillable(['email', 'is_active'])]")
+        ->and($content)->toContain("'is_active' => 'boolean'");
 });
 
 it('reports created file paths and elapsed time', function (): void {
