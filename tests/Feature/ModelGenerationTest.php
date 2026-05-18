@@ -50,6 +50,7 @@ beforeEach(function (): void {
             ['name' => 'post_tag'],
             ['name' => 'role_user'],
             ['name' => 'user_role'],
+            ['name' => 'system_users'],
         ]);
 
     Schema::shouldReceive('getColumns')
